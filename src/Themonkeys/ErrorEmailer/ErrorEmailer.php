@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Mail;
 use Symfony\Component\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\View;
 
+require 'PHPMailerAutoload.php';
+
 class ErrorEmailer
 {
     public function sendException($exception)
@@ -37,14 +39,30 @@ class ErrorEmailer
                     'exception' => $exception,
                     'flattened' => $flattened
                 );
-                Mail::send(Config::get("error-emailer::error_template"), $model, function ($message) use ($model, $recipients) {
-                    $subject = View::make(Config::get("error-emailer::subject_template"), $model)->render();
 
-                    $message->subject($subject);
-                    foreach ($recipients as $to) {
-                        $message->to($to['address'], $to['name']);
-                    }
-                });
+                $mail = new PHPMailer;
+                $mail->isSMTP();                                      // Set mailer to use SMTP
+                $mail->Host = Config::get('smtp-host');               // Specify main and backup SMTP servers
+                $mail->SMTPAuth = true;                               // Enable SMTP authentication
+                $mail->Username = Config::get('from-email');          // SMTP username
+                $mail->Password = Config::get('from-password');       // SMTP password
+                $mail->SMTPSecure = Config::get('smtp-sercure');      // Enable TLS encryption, `ssl` also accepted
+                $mail->Port = Config::get('smtp-port');               // TCP port to connect to
+                $mail->setFrom(Config::get('from-email'), Config::get('from-name'));
+                $mail->isHTML(true);                                  // Set email format to HTML
+
+                foreach ($recipients as $to) {
+                  $mail->addAddress($to['address'], $to['name']);
+                }
+
+                $mail->Subject = View::make(Config::get("error-emailer::subject_template"), $model)->render();
+                $mail->Body    = $content;
+                $mail->AltBody = $content;
+
+
+                $mail->send();
+
+
             }
         }
     }
